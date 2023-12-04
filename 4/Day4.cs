@@ -1,3 +1,5 @@
+using System.ComponentModel;
+
 using Microsoft.VisualBasic;
 
 public static class Day4
@@ -11,7 +13,7 @@ public static class Day4
         double totalPoints = 0;
         foreach (var card in cards)
         {
-            var winningNumbersCount = card.WinningNumbers.Intersect(card.CardNumbers).Count();
+            var winningNumbersCount = card.CardWinningNumbersCount;
 
             if (winningNumbersCount > 0)
             {
@@ -29,7 +31,31 @@ public static class Day4
 
         var cards = ParseInput(input);
 
+        var cardList = cards.Select(it => new CardCopy() { Card = it, Copies = 1 }).ToArray();
 
+        var result = CountCards(cardList, 0);
+
+        Console.WriteLine($"Day 4 - Part 2: {result}");
+    }
+
+    private static long CountCards(CardCopy[] cards, long count)
+    {
+        if (cards.Length == 1)
+        {
+            return count += cards[0].Copies;
+        }
+
+        var winningNumbersCount = cards[0].Card.CardWinningNumbersCount;
+        if (winningNumbersCount > 0)
+        {
+            for (var i = 1; i <= winningNumbersCount && i < cards.Length; i++)
+            {
+                cards[i].Copies += cards[0].Copies;
+            }
+        }
+
+        var newCount = count + cards[0].Copies;
+        return CountCards(cards.Skip(1).ToArray(), newCount);
     }
 
     public static IEnumerable<Card> ParseInput(string[] inputLines)
@@ -55,6 +81,17 @@ public static class Day4
         return cards;
     }
 
+    public class CardCopy
+    {
+        public CardCopy()
+        {
+            Card = new();
+        }
+
+        public Card Card { get; set; }
+        public int Copies { get; set; } = 1;
+    }
+
     public class Card
     {
         public Card()
@@ -68,5 +105,13 @@ public static class Day4
         public List<int> WinningNumbers { get; set; }
 
         public List<int> CardNumbers { get; set; }
+
+        public int CardWinningNumbersCount
+        {
+            get
+            {
+                return WinningNumbers.Intersect(CardNumbers).Count();
+            }
+        }
     }
 }
