@@ -1,79 +1,140 @@
-using System.Diagnostics;
-using System.Dynamic;
-
 public static class Day5
 {
     public static void Part1()
     {
-        var input = Utilities.ReadFile("5/input-test.txt");
+        var input = Utilities.ReadFile("5/input.txt");
 
-        var parsedInput = ParseInput(input);
+        char[] spaceOrHyphen = [' ', '-'];
+        Dictionary<string, string> mappingTypes = [];
+        List<(string sourceType, long sourceFrom, long sourceTo, long destOffset)> mappings = [];
+        long lowestDest = long.MaxValue;
+        var type = "";
+        var destType = "";
+        long[] seeds = Array.ConvertAll(input[0].Split(' ')[1..], Convert.ToInt64);
 
-        var seeds = parsedInput.Item1;
-        var almanac = parsedInput.Item2;
+        foreach (string line in input[1..])
+        {
+            if (line.Contains('-'))
+            {
+                string[] words = line.Split(spaceOrHyphen, StringSplitOptions.RemoveEmptyEntries);
+                type = words[0];
+                destType = words[2];
+                mappingTypes[type] = destType;
+            }
+            else
+            {
+                long[] numbers = Array.ConvertAll(line.Split([' ']), Convert.ToInt64);
+                mappings.Add((type, numbers[1], numbers[1] + numbers[2] - 1, numbers[0] - numbers[1]));
+            }
+        }
 
-        var locations = seeds.Select(it => GetSeedLocation(it, almanac)).ToArray();
+        foreach (var seedNumber in seeds)
+        {
+            type = "seed";
+            var sourceNumber = seedNumber;
+            do
+            {
+                (string sourceType, long sourceFrom, long sourceTo, long destOffset)
+                    = mappings.LastOrDefault(m => m.sourceType == type && m.sourceFrom <= sourceNumber && sourceNumber <= m.sourceTo, ("", 0, 0, 0));
+                sourceNumber += destOffset;
+                type = mappingTypes[type];
+            } while (type != "location");
+            lowestDest = Math.Min(lowestDest, sourceNumber);
+        }
 
-        Console.WriteLine($"Day 5 - Part 1: {locations.OrderBy(it => it).First()}");
+        Console.WriteLine($"Day 5 - Part 1: {lowestDest}");
     }
 
     public static void Part2()
     {
         var input = Utilities.ReadFile("5/input.txt");
 
-    }
+        char[] spaceOrHyphen = [' ', '-'];
+        Dictionary<string, string> mappingTypes = [];
+        List<(string sourceType, long sourceFrom, long sourceTo, long destOffset)> mappings = [];
+        long lowestDest = long.MaxValue;
+        var type = "";
+        var destType = "";
+        long[] seeds = Array.ConvertAll(input[0].Split(' ')[1..], Convert.ToInt64);
 
-    private static long GetSeedLocation(long step, List<List<AlmanacEntry>> almanac)
-    {
-        var currentStep = step;
-        foreach (var entryList in almanac)
+        foreach (string line in input[1..])
         {
-            currentStep = GetSeedLocationInMap(currentStep, entryList);
-        }
-        return currentStep;
-    }
-
-    private static long GetSeedLocationInMap(long step, List<AlmanacEntry> map)
-    {
-        var currentStep = step;
-        foreach (var entry in map)
-        {
-            if (entry.SourceRangeStart <= step && (entry.SourceRangeStart + entry.RangeLength) > step)
+            if (line.Contains('-'))
             {
-                currentStep = entry.DestinationRangeStart + (currentStep - entry.SourceRangeStart);
+                string[] words = line.Split(spaceOrHyphen, StringSplitOptions.RemoveEmptyEntries);
+                type = words[0];
+                destType = words[2];
+                mappingTypes[type] = destType;
+            }
+            else
+            {
+                long[] numbers = Array.ConvertAll(line.Split([' ']), Convert.ToInt64);
+                mappings.Add((type, numbers[1], numbers[1] + numbers[2] - 1, numbers[0] - numbers[1]));
             }
         }
-        return currentStep;
-    }
 
-    private static Tuple<long[], List<List<AlmanacEntry>>> ParseInput(string[] input)
-    {
-        long[] seeds = input[0].Split(": ")[1].Split(" ").Select(long.Parse).ToArray();
-
-        List<List<AlmanacEntry>> almanac = [];
-        foreach (var inputLine in input.Skip(1))
+        List<(long from, long to)> ranges = [];
+        for (int i = 0; i < seeds.Length; i += 2)
         {
-            if (inputLine.EndsWith("map:"))
-            {
-                almanac.Add([]);
-                continue;
-            }
-            var map = inputLine.Split(" ").Select(long.Parse).ToArray();
-            almanac.Last().Add(new AlmanacEntry()
-            {
-                DestinationRangeStart = map[0],
-                SourceRangeStart = map[1],
-                RangeLength = map[2]
-            });
+            ranges.Add((seeds[i], seeds[i] + seeds[i + 1] - 1));
         }
+        type = "seed";
+        do
+        {
+            ranges = GetDestRanges(ranges.OrderBy(r => r.from).ToList(), [.. mappings.Where(m => m.sourceType == type).OrderBy(m => m.sourceFrom)]);
+            type = mappingTypes[type];
+        } while (type != "location");
+        lowestDest = Math.Min(lowestDest, ranges.Min(r => r.from));
 
-        return new Tuple<long[], List<List<AlmanacEntry>>>(seeds, almanac);
+        Console.WriteLine($"Day 5 - Part 2: {lowestDest}");
     }
 
-    public class AlmanacEntry
+    private static List<(long, long)> GetDestRanges(List<(long, long)> sourceRanges, List<(string sourceType, long sourceFrom, long sourceTo, long destOffset)> mappings)
     {
-        public long DestinationRangeStart { get; set; }
-        public long SourceRangeStart { get; set; }
-        public long RangeLength { get; set; }
+        List<(long, long)> result = [];
+        foreach ((long, long) sourceRange in sourceRanges)
+        {
+            (long from, long to) testRange = sourceRange;
+            bool allDone = false;
+            do
+            {
+                // Find the last mapping where the start is less than the start of the range
+                (string sourceType, long sourceFrom, long sourceTo, long destOffset)
+                    = mappings.LastOrDefault(m => m.sourceFrom <= testRange.from && testRange.from <= m.sourceTo, ("", 0, 0, 0));
+                // There aren't any
+                if (sourceType == "")
+                {
+                    // Does the end fit in any mappings?
+                    (sourceType, sourceFrom, sourceTo, destOffset)
+                        = mappings.LastOrDefault(m => m.sourceFrom <= testRange.to && testRange.to <= m.sourceTo, ("", 0, 0, 0));
+                    if (sourceType == "")
+                    {
+                        // If there aren't any, add the whole range and end
+                        result.Add(testRange);
+                        allDone = true;
+                    }
+                    else
+                    {
+                        // Add the start of the range, set the range to the end and continue
+                        result.Add((testRange.from, sourceFrom - 1));
+                        testRange = (sourceFrom, testRange.to);
+                    }
+                }
+                // If the end of the mapping is greater than the end of the range, add the whole range (with offset) and end
+                else if (sourceTo >= testRange.to)
+                {
+                    result.Add((testRange.from + destOffset, testRange.to + destOffset));
+                    allDone = true;
+                }
+                // Otherwise, add from the start of the range to the end of the mapping (with offsets), set the range start to the mapping end plus one and continue
+                else
+                {
+                    //sourceNumber = sourceNumber + destFrom - sourceFrom;
+                    result.Add((testRange.from + destOffset, sourceTo + destOffset));
+                    testRange = (sourceTo + 1, testRange.to);
+                }
+            } while (!allDone);
+        }
+        return result;
     }
 }
