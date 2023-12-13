@@ -8,4 +8,12 @@ public static class Utilities
             .Where(it => !string.IsNullOrWhiteSpace(it))
             .ToArray();
     }
+
+    public static string[] ReadFileKeepBlankLines(string filename)
+    {
+        var projectFolder = Directory.GetCurrentDirectory();
+        return File.ReadAllText(Path.Combine(projectFolder, filename))
+            .Split("\n")
+            .ToArray();
+    }
 }
