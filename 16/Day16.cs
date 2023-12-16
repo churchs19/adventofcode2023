@@ -1,18 +1,62 @@
+using System.Security.Cryptography;
+
 public static class Day16
 {
     public static void Part1()
     {
-        var input = Utilities.ReadFile("16/input-test.txt");
+        var input = Utilities.ReadFile("16/input.txt");
+        var matrix = input.Select(it => it.Trim().ToCharArray()).ToArray();
+
+        var energizedCount = GetEnergizedCount(new Beam(0, 0, Direction.Right), matrix);
+
+        Console.WriteLine($"Day 16 - Part 1: {energizedCount}");
+    }
+
+    public static void Part2()
+    {
+        var input = Utilities.ReadFile("16/input.txt");
 
         var matrix = input.Select(it => it.Trim().ToCharArray()).ToArray();
-        bool[][] energized = new bool[matrix.Length][];
+
+        var startingBeams = new List<Beam>();
+        for(var i = 0; i<matrix.Length; i++)
+        {
+            startingBeams.Add(new Beam(i, 0, Direction.Right));
+            startingBeams.Add(new Beam(i, matrix[i].Length - 1, Direction.Left));
+        }
+        for(var i= 0; i< matrix[0].Length; i++)
+        {
+            startingBeams.Add(new Beam(0, i, Direction.Down));
+            startingBeams.Add(new Beam(matrix.Length - 1, i, Direction.Up));
+        }
+
+        var maxEnergizedCount = int.MinValue;
+        foreach(var beam in startingBeams)
+        {
+            var energizedCount = GetEnergizedCount(beam, matrix);
+            if(energizedCount > maxEnergizedCount)
+            {
+                maxEnergizedCount = energizedCount;
+            }
+        }
+
+        Console.WriteLine($"Day 16 - Part 2: {maxEnergizedCount}");
+    }
+
+    private static int GetEnergizedCount(Beam beam, char[][] matrix)
+    {
+        CellVisit[][] energized = new CellVisit[matrix.Length][];
         for (var i = 0; i < energized.Length; i++)
         {
-            energized[i] = new bool[matrix[i].Length];
+            energized[i] = new CellVisit[matrix[i].Length];
+            for (var j = 0; j < energized[i].Length; j++)
+            {
+                energized[i][j] = new CellVisit();
+            }
         }
 
         Queue<Beam> beams = [];
-        beams.Enqueue(new Beam(0, 0, Direction.Right));
+        beams.Enqueue(beam);
 
         while (beams.Any())
         {
@@ -21,12 +65,11 @@ public static class Day16
             if (currentBeam.Row >= 0 &&
                 currentBeam.Row < matrix.Length &&
                 currentBeam.Column >= 0 &&
-                currentBeam.Column < matrix[currentBeam.Row].Length)
+                currentBeam.Column < matrix[currentBeam.Row].Length &&
+                !energized[currentBeam.Row][currentBeam.Column].Contains(currentBeam.Direction))
             {
-                energized[currentBeam.Row][currentBeam.Column] = true;
+                energized[currentBeam.Row][currentBeam.Column].Add(currentBeam.Direction);
 
-                Beam? next = null;
-                Beam? next2 = null;
                 switch (matrix[currentBeam.Row][currentBeam.Column])
                 {
                     case '.':
@@ -35,35 +78,35 @@ public static class Day16
                     case '/':
                         if (currentBeam.Direction == Direction.Right)
                         {
-                            next = GetNextLocation(currentBeam.Row, currentBeam.Column, Direction.Up);
+                            beams.Enqueue(GetNextLocation(currentBeam.Row, currentBeam.Column, Direction.Up));
                         }
                         else if (currentBeam.Direction == Direction.Left)
                         {
-                            next = GetNextLocation(currentBeam.Row, currentBeam.Column, Direction.Down);
+                            beams.Enqueue(GetNextLocation(currentBeam.Row, currentBeam.Column, Direction.Down));
                         }
                         else if (currentBeam.Direction == Direction.Up)
                         {
-                            next = GetNextLocation(currentBeam.Row, currentBeam.Column, Direction.Right);
+                            beams.Enqueue(GetNextLocation(currentBeam.Row, currentBeam.Column, Direction.Right));
                         }
                         else
                         {
-                            next = GetNextLocation(currentBeam.Row, currentBeam.Column, Direction.Left);
+                            beams.Enqueue(GetNextLocation(currentBeam.Row, currentBeam.Column, Direction.Left));
                         }
                         break;
                     case '\\':
                         if (currentBeam.Direction == Direction.Right)
                         {
-                            next = GetNextLocation(currentBeam.Row, currentBeam.Column, Direction.Down);
+                            beams.Enqueue(GetNextLocation(currentBeam.Row, currentBeam.Column, Direction.Down));
                         }
                         else if (currentBeam.Direction == Direction.Left)
                         {
-                            next = GetNextLocation(currentBeam.Row, currentBeam.Column, Direction.Up);
+                            beams.Enqueue(GetNextLocation(currentBeam.Row, currentBeam.Column, Direction.Up));
                         }
                         else
                         {
-                            next = currentBeam.Direction == Direction.Up
+                            beams.Enqueue(currentBeam.Direction == Direction.Up
                                 ? GetNextLocation(currentBeam.Row, currentBeam.Column, Direction.Left)
-                                : GetNextLocation(currentBeam.Row, currentBeam.Column, Direction.Right);
+                                : GetNextLocation(currentBeam.Row, currentBeam.Column, Direction.Right));
                         }
                         break;
                     case '|':
@@ -74,8 +117,8 @@ public static class Day16
                         else
                         {
                             //Split
-                            next = GetNextLocation(currentBeam.Row, currentBeam.Column, Direction.Up);
-                            next2 = GetNextLocation(currentBeam.Row, currentBeam.Column, Direction.Down);
+                            beams.Enqueue(GetNextLocation(currentBeam.Row, currentBeam.Column, Direction.Up));
+                            beams.Enqueue(GetNextLocation(currentBeam.Row, currentBeam.Column, Direction.Down));
                         }
                         break;
                     case '-':
@@ -86,42 +129,15 @@ public static class Day16
                         else
                         {
                             //Split
-                            next = GetNextLocation(currentBeam.Row, currentBeam.Column, Direction.Left);
-                            next2 = GetNextLocation(currentBeam.Row, currentBeam.Column, Direction.Right);
+                            beams.Enqueue(GetNextLocation(currentBeam.Row, currentBeam.Column, Direction.Left));
+                            beams.Enqueue(GetNextLocation(currentBeam.Row, currentBeam.Column, Direction.Right));
                         }
                         break;
-                }
-                if (next != null && 
-                    next.Row >= 0 &&
-                    next.Row < matrix.Length &&
-                    next.Column >= 0 &&
-                    next.Column < matrix[next.Row].Length &&
-                    !energized[next.Row][next.Column])
-                {
-                    beams.Enqueue(next);
-                }
-                if (next2 != null &&
-                    next2.Row >= 0 &&
-                    next2.Row < matrix.Length &&
-                    next2.Column >= 0 &&
-                    next2.Column < matrix[next2.Row].Length &&
-                    !energized[next2.Row][next2.Column])
-                {   
-                    beams.Enqueue(next2);
                 }
             }
         }
 
-        Console.WriteLine("Energized:");
-        foreach(var line in energized.Select(it => new string(it.Select(item => item ? '#' : '.').ToArray())))
-        {
-            Console.WriteLine(line);
-        }
-        Console.Write("\n\n");
-
-        var energizedCount = energized.SelectMany(it => it.Where(item => item == true)).Count();
-
-        Console.WriteLine($"Day 16 - Part 1: {energizedCount}");
+        return energized.SelectMany(it => it.Where(item => item.Count > 0)).Count();
     }
 
     private static Beam GetNextLocation(int row, int column, Direction direction)
@@ -148,6 +164,11 @@ public static class Day16
         Right
     }
 
+    internal class CellVisit : List<Direction>
+    {
+
+    }
+
     internal class Beam
     {
         public Beam(int row, int column, Direction direction)
@@ -160,12 +181,5 @@ public static class Day16
         internal int Row { get; private set; }
         internal int Column { get; private set; }
         internal Direction Direction { get; private set; }
-    }
-
-    public static void Part2()
-    {
-        var input = Utilities.ReadFile("16/input.txt");
-
-
     }
 }
