@@ -4,6 +4,7 @@ public static class Utilities
     {
         var projectFolder = Directory.GetCurrentDirectory();
         return File.ReadAllText(Path.Combine(projectFolder, filename))
+            .TrimEnd()
             .Split("\n")
             .Where(it => !string.IsNullOrWhiteSpace(it))
             .ToArray();
@@ -13,6 +14,7 @@ public static class Utilities
     {
         var projectFolder = Directory.GetCurrentDirectory();
         return File.ReadAllText(Path.Combine(projectFolder, filename))
+            .TrimEnd()
             .Split("\n")
             .ToArray();
     }
