@@ -18,6 +18,15 @@ public static class Day19
         var input = Utilities.ReadFileKeepBlankLines("19/input.txt");
 
         (var workflows, var parts) = ParseInput(input);
+
+        var ranges = new Dictionary<char, Range>() {
+            { 'x', new Range() },
+            { 'm', new Range() },
+            { 'a', new Range() },
+            { 's', new Range() }
+        };
+
+        
     }
 
     private static (Dictionary<string, Workflow>, List<Dictionary<char, int>>) ParseInput(string[] input)
@@ -60,6 +69,12 @@ public static class Day19
         }
 
         return (workflows, parts);
+    }
+
+    internal class Range(int start = 1, int end = 4000)
+    {
+        internal int Start { get; private set; } = start;
+        internal int End { get; private set; } = end;
     }
 
     internal class Workflow(List<Command> commands, string defaultTarget)
